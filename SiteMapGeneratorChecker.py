@@ -116,28 +116,46 @@ for url_group, matches in url_group_matches.items():
 
 print "%d of %d pages are multipages" %(no_of_multipages, total)
 
-# <headingcell level=2>
+# <markdowncell>
 
-# Assert all last pages we found return 200 OK
+# # Use SQLite3 to cache results
 
 # <codecell>
 
-import requests
-from contextlib import contextmanager
-import time
+from sqlalchemy import *
+from datetime import datetime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Enum
 
-@contextmanager
-def timed_context(work_description):
-    start = time.time()
-    try:
-        yield
-    except Exception as e:
-        raise
-    else:
-        delta = time.time() - start
-        with open("urls_tested.log", "a") as outfile:
-            print>>outfile, '%.2f' % delta, ':', work_description
+engine = create_engine("sqlite:///urls_tested.db")
+engine.echo = False
+
+Base = declarative_base()
+
+class Url(Base):
+    __tablename__ = "urls"
+    id = Column(Integer, primary_key = True)
+    url = Column(String(100), unique=True, nullable=False)# whether we are checking this url as the last possible page or as last+1 page.
+    page_type = Column(Enum('LAST', 'LASTPLUSONE', name='page_type'), nullable=False)
+    status_code = Column(Integer, nullable=False)
+    response_time = Column(Float, nullable=False)
+    last_checked = Column(DateTime, nullable=False, default=datetime.utcnow)
+    html = Column(Text, nullable=False)
+        
+    def __repr__(self):
+        return "<Url(url='%s', page_type='%s', status_code='%d', last_checked='%s', response_time='%d')" % (self.url, self.page_type, self.status_code, self.last_checked, self.response_time)
     
+Base.metadata.create_all(engine)
+
+# <codecell>
+
+from sqlalchemy.orm import sessionmaker
+Session = sessionmaker(bind=engine)
+session = Session()
+
+# <markdowncell>
+
+# # Assert all last pages we found return 200 OK
 
 # <codecell>
 
@@ -165,35 +183,19 @@ def should_have_been_404(html):
 
 # <codecell>
 
-with open("all_multipage_urls.log", 'w') as txt:
-    for match in last_page_matches:
-        txt.write(match.string)
-        txt.write('\n')
-print '%d of urls in total' % len(last_page_matches)
-
-# <codecell>
-
-raw_urls_times = !cat urls_tested.log
-
-urls_times = {}
-for line in raw_urls_times:
-    _time, url = line.split(":", 1)
-    _time = float(_time)
-    url = url.strip()
-    urls_times[url] = _time
-
-failed = []
-
-# this is rather long, so we need to
 for match in last_page_matches:
     url = match.string
-    if url in urls_times:
-        continue # skip this
     try:
-        with timed_context(url):
-            req = requests.get(url)
-            assert req.status_code == 200
-            assert not should_have_been_404(req.text), req.url + " is practically 404, which it shouldn't be."
+        found = session.query(Url).filter_by(url=url).first()
+        if found:
+            continue
+        else:
+            res = requests.get(url)
+            new_url = Url(url=url, status_code=res.status_code, response_time=res.elapsed.total_seconds(), html=res.text, page_type='LAST')
+            session.add(new_url)
+            session.commit()
+            assert res.status_code == 200
+            assert not should_have_been_404(res.text), res.url + " is practically 404, which it shouldn't be."
     except AssertionError as e:
         print e
 
@@ -212,8 +214,24 @@ for match in last_page_matches:
     # find next page of matched url
     next_page = next_page_of_matched_url(match)
     req = requests.get(next_page)
-    print req.status_code, next_page
-    assert should_have_been_404(req.text)
+    if req.status_code == 404:
+        continue # as expected
+    
+    print 'Inspecting ', req.status_code, next_page
+    try:
+        assert should_have_been_404(req.text), req.url + " should have been 404"
+    except AssertionError as e:
+        print 'Error:', e
+
+# <codecell>
+
+should_be_dead_links = """
+http://www.fht360.com/productlist/239/564-6.html
+http://www.fht360.com/productlist/324/7693-7.html
+http://www.fht360.com/productlist/244/574-3.html
+http://www.fht360.com/productlist/239/564-3-1122.html
+http://www.fht360.com/productlist/239/574-3.html
+"""
 
 # <codecell>
 
