@@ -45,6 +45,10 @@ from sqlalchemy.orm import sessionmaker
 MSSQLSession = sessionmaker(bind=mssqlserver_engine)
 mssql_session = MSSQLSession()
 
+# <markdowncell>
+
+# # Naive one to one copy
+
 # <codecell>
 
 for url in sqlite_session.query(Url).all():
