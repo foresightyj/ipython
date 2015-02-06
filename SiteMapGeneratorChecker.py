@@ -136,7 +136,7 @@ class Url(Base):
     __tablename__ = "urls"
     id = Column(Integer, primary_key = True)
     url = Column(String(100), unique=True, nullable=False)# whether we are checking this url as the last possible page or as last+1 page.
-    page_type = Column(Enum('LAST', 'LASTPLUSONE', name='page_type'), nullable=False)
+    page_type = Column(Enum('LAST', 'BEYONDLAST', name='page_type'), nullable=False)
     status_code = Column(Integer, nullable=False)
     response_time = Column(Float, nullable=False)
     last_checked = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -194,10 +194,11 @@ for match in last_page_matches:
             new_url = Url(url=url, status_code=res.status_code, response_time=res.elapsed.total_seconds(), html=res.text, page_type='LAST')
             session.add(new_url)
             session.commit()
-            assert res.status_code == 200
+            assert res.status_code == 200, res.url + " should have returned 200."
             assert not should_have_been_404(res.text), res.url + " is practically 404, which it shouldn't be."
     except AssertionError as e:
         print e
+        
 
 # <headingcell level=2>
 
@@ -212,26 +213,46 @@ def next_page_of_matched_url(match):
     
 for match in last_page_matches:
     # find next page of matched url
-    next_page = next_page_of_matched_url(match)
-    req = requests.get(next_page)
-    if req.status_code == 404:
-        continue # as expected
+    url = next_page_of_matched_url(match)
     
-    print 'Inspecting ', req.status_code, next_page
-    try:
-        assert should_have_been_404(req.text), req.url + " should have been 404"
-    except AssertionError as e:
-        print 'Error:', e
+    found = session.query(Url).filter_by(url=url).first()
+    if found:
+        continue
+    else:
+        try:
+            res = requests.get(url)
+            new_url = Url(url=url, status_code=res.status_code, response_time=res.elapsed.total_seconds(), html=res.text, page_type='BEYONDLAST')
+            session.add(new_url)
+            session.commit()
+            assert res.status_code == 404 or should_have_been_404(res.text), res.url + " should have been 404"
+        except AssertionError as e:
+            print 'Error:', e
+
+# <markdowncell>
+
+# # Double Check
 
 # <codecell>
 
-should_be_dead_links = """
-http://www.fht360.com/productlist/239/564-6.html
-http://www.fht360.com/productlist/324/7693-7.html
-http://www.fht360.com/productlist/244/574-3.html
-http://www.fht360.com/productlist/239/564-3-1122.html
-http://www.fht360.com/productlist/239/574-3.html
-"""
+for url in session.query(Url).filter_by(page_type='LAST').all():
+    try:
+        assert url.status_code == 200, url.url + " should have returned 200."
+        assert not should_have_been_404(url.html), url.url + " is practically 404, which it shouldn't be."
+    except AssertionError as e:
+        #session.delete(url) # we try it again
+        #session.commit()
+        print e
+
+# <codecell>
+
+for url in session.query(Url).filter_by(page_type='BEYONDLAST').all():
+    try:
+        assert url.status_code == 404 or should_have_been_404(url.html), url.url + " should have been 404"
+    except AssertionError as e:
+        print e
+
+# <codecell>
+
 
 # <codecell>
 
