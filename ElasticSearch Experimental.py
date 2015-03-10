@@ -101,7 +101,7 @@ print requests.put('http://localhost:9200/fht360', data=mapping).json()
 
 # <codecell>
 
-for row in conn.execute("select top 200 %s from CM_Company;" % ','.join(cols)):
+for row in conn.execute("select top 1000 %s from CM_Company;" % ','.join(cols)):
     doc = dict(row)
     company_id = doc['CompanyId']
     es.index(index="fht360", doc_type="company", id=company_id, body=doc)
@@ -187,13 +187,13 @@ def search_multi_match(query):
               "BusinessModel^1.5",
               "Address",
               "CompanyContent"
-          ],
-          "analyzer": "mmseg_analyzer"
+          ]
         }
       }
     }
     ''' % query
-    return requests.get('http://localhost:9200/fht360/_search?explain', data=q).text
+    #return requests.get('http://localhost:9200/fht360/_search?explain', data=q).text
+    return requests.get('http://localhost:9200/fht360/_search?_source=CompanyName,CompanyId,BusinessModel', data=q).text
 
 # <codecell>
 
@@ -201,6 +201,15 @@ print search_multi_match("江苏火火")
 
 # <codecell>
 
+print search_multi_match("火火")
+
+# <codecell>
+
+print search_multi_match("女装")
+
+# <codecell>
+
+print search_multi_match("化工")
 
 # <codecell>
 
