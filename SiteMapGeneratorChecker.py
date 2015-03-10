@@ -7,8 +7,8 @@
 
 # <codecell>
 
-routing_rules_path = "E:/OneDrive/Notes/fht360_study/routing_rules.cs"
-
+routing_rules_path = "E:/NutStore/Notes/fht360_study/routing_rules.cs"
+    
 def _get_rules():
     with open(routing_rules_path) as f:
         for line in f:
@@ -122,12 +122,23 @@ print "%d of %d pages are multipages" %(no_of_multipages, total)
 
 # <codecell>
 
+error = """
+(ProgrammingError) ('42000', '[42000] [Microsoft][ODBC SQL Server Driver][SQL Server]\xce\xde\xb7\xa8\xb4\xf2\xbf\xaa\xb5\xc7\xc2\xbc\xcb\xf9\xc7\xeb\xc7\xf3\xb5\xc4\xca\xfd\xbe\xdd\xbf\xe2 "urls_cache"\xa1\xa3\xb5\xc7\xc2\xbc\xca\xa7\xb0\xdc\xa1\xa3 (4060) (SQLDriverConnect); [42000] [Microsoft][ODBC SQL Server Driver][SQL Server]\xce\xde\xb7\xa8\xb4\xf2\xbf\xaa\xb5\xc7\xc2\xbc\xcb\xf9\xc7\xeb\xc7\xf3\xb5\xc4\xca\xfd\xbe\xdd\xbf\xe2 "urls_cache"\xa1\xa3\xb5\xc7\xc2\xbc\xca\xa7\xb0\xdc\xa1\xa3 (4060)') None None
+"""
+print error.decode('gb2312')
+
+# <codecell>
+
 from sqlalchemy import *
 from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Text, DateTime, Float, Enum
 
-engine = create_engine("mssql+pyodbc://yuanjian:xixinannan@localhost/urls_test")
+from sqlalchemy.dialects.mssql import NVARCHAR
+
+
+#engine = create_engine("mssql+pyodbc://yuanjian:xixinannan@localhost/urls_cache")
+engine = create_engine("mssql+pyodbc://sa:123456@192.168.0.110/urls_cache")
 engine.echo = False
 
 Base = declarative_base()
@@ -140,7 +151,7 @@ class Url(Base):
     status_code = Column(Integer, nullable=False)
     response_time = Column(Float, nullable=False)
     last_checked = Column(DateTime, nullable=False, default=datetime.utcnow)
-    html = Column(Text, nullable=False)
+    html = Column(NVARCHAR, nullable=False)
         
     def __repr__(self):
         return "<Url(url='%s', page_type='%s', status_code='%d', last_checked='%s', response_time='%d')" % (self.url, self.page_type, self.status_code, self.last_checked, self.response_time)
@@ -181,25 +192,6 @@ def should_have_been_404(html):
                 return True
     return False
 
-# <codecell>
-
-for match in last_page_matches:
-    url = match.string
-    try:
-        found = session.query(Url).filter_by(url=url).first()
-        if found:
-            continue
-        else:
-            res = requests.get(url)
-            new_url = Url(url=url, status_code=res.status_code, response_time=res.elapsed.total_seconds(), html=res.text, page_type='LAST')
-            session.add(new_url)
-            session.commit()
-            assert res.status_code == 200, res.url + " should have returned 200."
-            assert not should_have_been_404(res.text), res.url + " is practically 404, which it shouldn't be."
-    except AssertionError as e:
-        print e
-        
-
 # <headingcell level=2>
 
 # #Assert that next page will not be found on server
@@ -227,6 +219,26 @@ for match in last_page_matches:
             assert res.status_code == 404 or should_have_been_404(res.text), res.url + " should have been 404"
         except AssertionError as e:
             print 'Error:', e
+        finally:
+            print '.',
+
+# <codecell>
+
+for match in last_page_matches:
+    url = match.string
+    try:
+        url_result = session.query(Url).filter_by(url=url).first()
+        if not url_result:
+            res = requests.get(url)
+            url_result = Url(url=url, status_code=res.status_code, response_time=res.elapsed.total_seconds(), html=res.text, page_type='LAST')
+            session.add(url_result)
+            session.commit()
+        assert url_result.status_code == 200, url_result.url + " should have returned 200."
+        assert not should_have_been_404(url_result.html), url_result.url + " is practically 404, which it shouldn't be."
+    except AssertionError as e:
+        print e
+    finally:
+        print '.',
 
 # <markdowncell>
 
@@ -242,6 +254,8 @@ for url in session.query(Url).filter_by(page_type='LAST').all():
         #session.delete(url) # we try it again
         #session.commit()
         print e
+    finally:
+        print '.',
 
 # <codecell>
 
@@ -250,6 +264,40 @@ for url in session.query(Url).filter_by(page_type='BEYONDLAST').all():
         assert url.status_code == 404 or should_have_been_404(url.html), url.url + " should have been 404"
     except AssertionError as e:
         print e
+
+# <markdowncell>
+
+# # Restart Some Urls If Necessary
+
+# <codecell>
+
+restart_urls = !cat C:\Users\yj\Desktop\restart_urls.txt
+restart_urls = [url.strip() for url in restart_urls if 'http' in url]
+
+# <codecell>
+
+for url in restart_urls:
+    try:
+        res = requests.get(url)
+        tobemodified = session.query(Url).filter_by(url=url).one()
+        tobemodified.status_code = res.status_code
+        tobemodified.response_time = res.elapsed.total_seconds()
+        tobemodified.html = res.text
+        session.add(tobemodified)
+        session.commit()
+        assert tobemodified.status_code == 200, tobemodified.url + " should have returned 200."
+        assert not should_have_been_404(tobemodified.html), tobemodified.url + " is practically 404, which it shouldn't be."
+
+    except AssertionError as e:
+        print 'Error:', e
+    finally:
+        print '.',
+
+# <codecell>
+
+
+# <codecell>
+
 
 # <codecell>
 

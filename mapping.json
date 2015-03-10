@@ -1,0 +1,63 @@
+{
+  "mappings": {
+    "company": {
+      "properties": {
+        "Address": {
+          "type": "string",
+          "analyzer": "mmseg_analyzer"
+        },
+        "AttenCount": {
+          "type": "long"
+        },
+        "BusinessModel": {
+          "type": "string",
+          "analyzer": "mmseg_analyzer"
+        },
+        "CompanyId": {
+          "type": "long"
+        },
+        "CompanyName": {
+          "type": "string",
+          "analyzer": "mmseg_analyzer"
+        },
+        "Contact": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "CreateTime": {
+          "type": "date",
+          "format": "dateOptionalTime"
+        },
+        "Email": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "FanCount": {
+          "type": "long"
+        },
+        "Fax": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "Latitude": {
+          "type": "double"
+        },
+        "Longitude": {
+          "type": "double"
+        },
+        "Mobile": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "Tel": {
+          "type": "string",
+          "index": "not_analyzed"
+        },
+        "UpdateTime": {
+          "type": "date",
+          "format": "dateOptionalTime"
+        }
+      }
+    }
+  }
+}

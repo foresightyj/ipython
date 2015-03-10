@@ -56,6 +56,11 @@ for url in sqlite_session.query(Url).all():
     mssql_session.add(copy_url)
     mssql_session.commit()
 
+# <markdowncell>
+
+# # Change text to ntext
+
 # <codecell>
 
+mssql_engine.execute("select top 1 * from urls;")
 
