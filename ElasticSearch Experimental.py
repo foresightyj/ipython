@@ -84,7 +84,7 @@ print seg_chinese(paragraph, seg_lib='mmseg')
 
 # <codecell>
 
-!curl -XDELETE localhost:9200/fht360/
+# !curl -XDELETE localhost:9200/fht360/
 
 # <codecell>
 
@@ -223,7 +223,8 @@ def search_as_you_type(partial_q):
                  "match_phrase_prefix" : {
                      "CompanyName" : {
                          "query" : "%s",
-                         "slop": 10
+                         "slop": 10,
+                         "max_expansions" : 50
                      }
                  }
              }
@@ -232,7 +233,7 @@ def search_as_you_type(partial_q):
 
 # <codecell>
 
-print search_as_you_type("火火科技网络")
+print search_as_you_type("火")
 
 # <codecell>
 
