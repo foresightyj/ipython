@@ -1,6 +1,9 @@
 {
   "mappings": {
     "company": {
+      "_all": {
+        "enabled": false
+      },
       "properties": {
         "Address": {
           "type": "string",
@@ -10,6 +13,10 @@
           "type": "long"
         },
         "BusinessModel": {
+          "type": "string",
+          "analyzer": "mmseg_analyzer"
+        },
+        "CompanyContent": {
           "type": "string",
           "analyzer": "mmseg_analyzer"
         },

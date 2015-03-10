@@ -84,7 +84,7 @@ print seg_chinese(paragraph, seg_lib='mmseg')
 
 # <codecell>
 
-#!curl -XDELETE localhost:9200/fht360/
+!curl -XDELETE localhost:9200/fht360/
 
 # <codecell>
 
@@ -101,15 +101,15 @@ print requests.put('http://localhost:9200/fht360', data=mapping).json()
 
 # <codecell>
 
-json_result = requests.get('http://localhost:9200/fht360/_analyze?field=CompanyName&pretty=true', data=paragraph[:20].encode('utf-8')).json()
-print '  '.join(token['token'] for token in json_result['tokens'])
-
-# <codecell>
-
-for row in conn.execute("select %s from CM_Company;" % ','.join(cols)):
+for row in conn.execute("select top 200 %s from CM_Company;" % ','.join(cols)):
     doc = dict(row)
     company_id = doc['CompanyId']
     es.index(index="fht360", doc_type="company", id=company_id, body=doc)
+
+# <codecell>
+
+json_result = requests.get('http://localhost:9200/fht360/_analyze?field=CompanyName&pretty=true', data=u"江苏火火是成立在南京国家软件园的一家公司".encode('utf-8')).json()
+print '  '.join(token['token'] for token in json_result['tokens'])
 
 # <codecell>
 
@@ -118,7 +118,7 @@ for row in conn.execute("select %s from CM_Company;" % ','.join(cols)):
 # <codecell>
 
 response = requests.get('http://localhost:9200/fht360/_mapping/company?pretty=true')
-#print response.text
+# print response.text
 
 # <markdowncell>
 
@@ -172,55 +172,32 @@ print search_by_company_name("火火")
 
 # <markdowncell>
 
-# # Search by BusinessModel
+# # Search by Multi-match
 
 # <codecell>
 
-def search_by_business_model(query):
-    q = """{
-           "query" : {
-               "match" : {
-                    "BusinessModel": "%s"
-              }
-            },
-            "highlight": {
-            "fields":{
-              "BusinessModel": {}
-            }
-          }
-        }""" % query
-
-    return requests.get('http://localhost:9200/fht360/company/_search?_source=CompanyName,CompanyId,BusinessModel', data=q).text
-
-# <codecell>
-
-print search_by_business_model("鞋子")
-
-# <markdowncell>
-
-# # Search by Email
+def search_multi_match(query):
+    q = '''
+    {
+      "query": {
+        "multi_match": {
+          "query": "%s",
+          "fields": [
+              "CompanyName^2",
+              "BusinessModel^1.5",
+              "Address",
+              "CompanyContent"
+          ],
+          "analyzer": "mmseg_analyzer"
+        }
+      }
+    }
+    ''' % query
+    return requests.get('http://localhost:9200/fht360/_search?explain', data=q).text
 
 # <codecell>
 
-def search_by_email(query):
-    q = """{
-           "query" : {
-               "match" : {
-                    "Email": "%s"
-              }
-            },
-            "highlight": {
-            "fields":{
-              "Email": {}
-            }
-          }
-        }""" % query
-
-    return requests.get('http://localhost:9200/fht360/company/_search?_source=CompanyName,CompanyId,Email', data=q).text
-
-# <codecell>
-
-print search_by_email('395012305@qq.com')
+print search_multi_match("江苏火火")
 
 # <codecell>
 
