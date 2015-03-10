@@ -211,6 +211,29 @@ print search_multi_match("女装")
 
 print search_multi_match("化工")
 
+# <markdowncell>
+
+# # Search as you type
+
+# <codecell>
+
+def search_as_you_type(partial_q):
+    q = '''{
+            "query":{
+                 "match_phrase_prefix" : {
+                     "CompanyName" : {
+                         "query" : "%s",
+                         "slop": 10
+                     }
+                 }
+             }
+           }''' % partial_q
+    return requests.get('http://localhost:9200/fht360/_search?_source=CompanyName,CompanyId', data=q).text
+
+# <codecell>
+
+print search_as_you_type("火火科技网络")
+
 # <codecell>
 
 
